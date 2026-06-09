@@ -79,6 +79,9 @@ main{display:flex;flex-direction:column;gap:0}
   background:var(--pitch-dark);
   display:flex;justify-content:center;align-items:flex-start;
   padding:16px;
+  touch-action:none;
+  -webkit-overflow-scrolling:none;
+  overflow:hidden;
 }
 #pitch-svg{
   width:100%;
@@ -664,33 +667,43 @@ function attachDrag(el, id){
     document.removeEventListener('mouseup', onMouseUp);
   }
 
-  // Touch
+  // Touch — long-press to drag, tap to select
+  var touchStartX, touchStartY, touchMoved, longPressTimer;
+
   el.addEventListener('touchstart', function(e){
     e.preventDefault();
-    selectPlayer(id);
+    e.stopPropagation();
     var t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchMoved = false;
+
+    // Start drag immediately — don't wait for long press
     state.dragging = {id:id};
+    selectPlayer(id);
     document.addEventListener('touchmove', onTouchMove, {passive:false});
-    document.addEventListener('touchend', onTouchEnd);
+    document.addEventListener('touchend', onTouchEnd, {passive:false});
   }, {passive:false});
 
   function onTouchMove(e){
     if(!state.dragging || state.dragging.id !== id) return;
     e.preventDefault();
+    e.stopPropagation();
+    touchMoved = true;
     var t = e.touches[0];
     var pt = getSVGPoint(t.clientX, t.clientY);
     movePlayer(id, pt.x, pt.y);
   }
-  function onTouchEnd(){
+
+  function onTouchEnd(e){
+    e.stopPropagation();
     state.dragging = null;
     document.removeEventListener('touchmove', onTouchMove);
     document.removeEventListener('touchend', onTouchEnd);
   }
 
-  // Tap to select
   el.addEventListener('click', function(e){
     e.stopPropagation();
-    selectPlayer(id);
   });
 }
 
@@ -902,11 +915,16 @@ function loadFromUrl(){
   } catch(e){ return false; }
 }
 
+// Prevent page scroll when touching the pitch
+document.getElementById('pitch-svg').addEventListener('touchmove', function(e){
+  e.preventDefault();
+}, {passive:false});
+
 // Hide hint after first drag
 var hintHidden = false;
 document.getElementById('pitch-svg').addEventListener('touchstart', function(){
   if(!hintHidden){ hintHidden=true; document.getElementById('pitch-hint').style.opacity='0'; }
-});
+}, {passive:false});
 document.getElementById('pitch-svg').addEventListener('mousedown', function(){
   if(!hintHidden){ hintHidden=true; document.getElementById('pitch-hint').style.opacity='0'; }
 });
