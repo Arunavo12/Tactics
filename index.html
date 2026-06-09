@@ -19,7 +19,7 @@
   --accent:#f5c518;
   --radius:10px;
 }
-html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+html,body{height:100%;max-height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;position:fixed;width:100%;}
 
 /* ── HEADER ── */
 header{
@@ -114,6 +114,7 @@ main{display:flex;flex-direction:column;gap:0}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .tab-content{display:none;padding:12px}
 .tab-content.active{display:block}
+.panel{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 
 /* Player list */
 .player-list{display:flex;flex-direction:column;gap:6px}
@@ -203,12 +204,14 @@ main{display:flex;flex-direction:column;gap:0}
 
 /* Responsive */
 @media(min-width:700px){
-  main{flex-direction:row;height:calc(100vh - 113px)}
-  .pitch-container{flex:1;height:100%;align-items:center}
-  .panel{width:320px;flex-shrink:0;overflow-y:auto;border-top:none;border-left:1px solid var(--border)}
+  main{flex-direction:row;height:calc(100vh - 113px);overflow:hidden;}
+  .pitch-container{flex:1;height:100%;align-items:center;overflow:hidden;}
+  .panel{width:320px;flex-shrink:0;overflow-y:auto;-webkit-overflow-scrolling:touch;border-top:none;border-left:1px solid var(--border)}
 }
 @media(max-width:699px){
-  .pitch-container{min-height:360px}
+  main{flex-direction:column;height:calc(100vh - 113px);overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .pitch-container{flex-shrink:0;min-height:340px;overflow:hidden;}
+  .panel{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
   #pitch-svg{max-width:300px}
 }
 </style>
