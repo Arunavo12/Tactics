@@ -633,13 +633,12 @@ function renderPitch(){
       g.appendChild(nameBelow);
     }
 
-    attachDrag(g, p.id);
     layer.appendChild(g);
   });
 }
 
-// ── DRAG ──
-function attachDrag(el, id){
+// ── DRAG — single SVG-level handler for reliable mobile ──
+function initSVGDrag(){
   var svg = document.getElementById('pitch-svg');
 
   function getSVGPoint(clientX, clientY){
@@ -648,66 +647,73 @@ function attachDrag(el, id){
     return pt.matrixTransform(svg.getScreenCTM().inverse());
   }
 
-  // Mouse
-  el.addEventListener('mousedown', function(e){
+  function getPlayerAt(svgX, svgY){
+    var best = null, bestDist = 28; // hit radius px in SVG coords
+    state.players.forEach(function(p){
+      var dx = p.x - svgX, dy = p.y - svgY;
+      var dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < bestDist){ bestDist = dist; best = p.id; }
+    });
+    return best;
+  }
+
+  // ── MOUSE ──
+  svg.addEventListener('mousedown', function(e){
     e.preventDefault();
+    var pt = getSVGPoint(e.clientX, e.clientY);
+    var id = getPlayerAt(pt.x, pt.y);
+    if(id === null) return;
     selectPlayer(id);
-    state.dragging = {id:id, startX:e.clientX, startY:e.clientY};
-    el.style.cursor = 'grabbing';
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    state.dragging = {id:id};
+    function onMove(e){
+      if(state.dragging === null) return;
+      var pt = getSVGPoint(e.clientX, e.clientY);
+      movePlayer(state.dragging.id, pt.x, pt.y);
+    }
+    function onUp(){
+      state.dragging = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   });
 
-  function onMouseMove(e){
-    if(!state.dragging || state.dragging.id !== id) return;
-    var pt = getSVGPoint(e.clientX, e.clientY);
-    movePlayer(id, pt.x, pt.y);
-  }
-  function onMouseUp(){
-    state.dragging = null;
-    el.style.cursor = 'grab';
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-  }
+  // ── TOUCH ──
+  var touchDragId = null;
+  var touchStartPt = null;
+  var touchHasMoved = false;
 
-  // Touch — long-press to drag, tap to select
-  var touchStartX, touchStartY, touchMoved, longPressTimer;
-
-  el.addEventListener('touchstart', function(e){
+  svg.addEventListener('touchstart', function(e){
     e.preventDefault();
-    e.stopPropagation();
-    var t = e.touches[0];
-    touchStartX = t.clientX;
-    touchStartY = t.clientY;
-    touchMoved = false;
-
-    // Start drag immediately — don't wait for long press
-    state.dragging = {id:id};
-    selectPlayer(id);
-    document.addEventListener('touchmove', onTouchMove, {passive:false});
-    document.addEventListener('touchend', onTouchEnd, {passive:false});
-  }, {passive:false});
-
-  function onTouchMove(e){
-    if(!state.dragging || state.dragging.id !== id) return;
-    e.preventDefault();
-    e.stopPropagation();
-    touchMoved = true;
     var t = e.touches[0];
     var pt = getSVGPoint(t.clientX, t.clientY);
-    movePlayer(id, pt.x, pt.y);
-  }
+    touchStartPt = pt;
+    touchHasMoved = false;
+    var id = getPlayerAt(pt.x, pt.y);
+    if(id !== null){
+      touchDragId = id;
+      state.dragging = {id:id};
+      selectPlayer(id);
+    } else {
+      touchDragId = null;
+    }
+  }, {passive:false});
 
-  function onTouchEnd(e){
-    e.stopPropagation();
+  svg.addEventListener('touchmove', function(e){
+    e.preventDefault();
+    if(touchDragId === null) return;
+    touchHasMoved = true;
+    var t = e.touches[0];
+    var pt = getSVGPoint(t.clientX, t.clientY);
+    movePlayer(touchDragId, pt.x, pt.y);
+  }, {passive:false});
+
+  svg.addEventListener('touchend', function(e){
+    e.preventDefault();
     state.dragging = null;
-    document.removeEventListener('touchmove', onTouchMove);
-    document.removeEventListener('touchend', onTouchEnd);
-  }
-
-  el.addEventListener('click', function(e){
-    e.stopPropagation();
-  });
+    touchDragId = null;
+  }, {passive:false});
 }
 
 var saveDebounce;
@@ -918,10 +924,8 @@ function loadFromUrl(){
   } catch(e){ return false; }
 }
 
-// Prevent page scroll when touching the pitch
-document.getElementById('pitch-svg').addEventListener('touchmove', function(e){
-  e.preventDefault();
-}, {passive:false});
+// Init SVG-level drag handler
+initSVGDrag();
 
 // Hide hint after first drag
 var hintHidden = false;
